@@ -23,9 +23,9 @@ MODELS = [
     "gpt-4.1-nano",
     "gpt-4.1-mini",
     "claude-3.7-sonnet",
-    "claude-3-haiku",
 ]
 
+# 60개 subset, 15개씩 수집
 
 def generate_prompt(topic, cs_level, major_lang):
     """Generate prompt for LLM to create code-switching scripts"""
@@ -103,7 +103,7 @@ def send_llm_request(prompt, temp=0.7, model="gpt-4o-mini"):
             json={
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": temp,  # 이 부분이 추가되었습니다.
+                "temperature": temp,
             },
         )
         response.raise_for_status()
@@ -113,19 +113,21 @@ def send_llm_request(prompt, temp=0.7, model="gpt-4o-mini"):
         return None
 
 
+from tqdm import tqdm
 if __name__ == "__main__":
-    n_samples = 2
+    n_samples = 1
     scripts = []
-    for topic in TOPICS:
-        for cs_level in CS_LEVEL:
-            for major_lang in MAJOR_LANG:
+    # Add progress bars to each level of the loops
+    for topic in tqdm(TOPICS, desc="Topics"):
+        for cs_level in tqdm(CS_LEVEL, desc="CS Levels", leave=False):
+            for major_lang in tqdm(MAJOR_LANG, desc="Languages", leave=False):
                 _prompt = generate_prompt(topic, cs_level, major_lang)
 
                 model_scripts = {}
-                for model in MODELS:
+                for model in tqdm(MODELS, desc="Models", leave=False):
                     model_scripts[model] = []
-                    for i in range(n_samples):
-                        response = send_llm_request(_prompt)
+                    for i in tqdm(range(n_samples), desc="Samples", leave=False):
+                        response = send_llm_request(_prompt, model=model)
                         if response is not None:
                             model_scripts[model].append(response)
                 scripts.append(
@@ -136,9 +138,9 @@ if __name__ == "__main__":
                         "scripts": model_scripts,
                     }
                 )
+        with open("scripts/samples.json", "w") as f:
+            json.dump(scripts, f, ensure_ascii=False, indent=4)
 
-    with open("scripts/samples.json", "w") as f:
-        json.dump(scripts, f, ensure_ascii=False, indent=4)
     import pdb
 
     pdb.set_trace()
