@@ -1,6 +1,16 @@
 # Topics for generating code-switching scripts
-TOPICS = ["Business", "Everyday Conversation", "Language Education", "Entertainment", "Slang/Neologisms",
-          "Travel", "Software Development", "Health & Wellness", "Academic", "Traditional Culture"]
+TOPICS = [
+    "Business",
+    "Everyday Conversation",
+    "Language Education",
+    "Entertainment",
+    "Slang/Neologisms",
+    "Travel",
+    "Software Development",
+    "Health & Wellness",
+    "Academic",
+    "Traditional Culture",
+]
 
 # Level of code-switching (word/phrase/sentence level)
 CS_LEVEL = ["word", "phrase", "sentence"]
@@ -8,20 +18,29 @@ CS_LEVEL = ["word", "phrase", "sentence"]
 # Primary language for word/phrase level code-switching
 MAJOR_LANG = ["English", "Korean"]
 
+MODELS = [
+    "gpt-4o-mini",
+    "gpt-4.1-nano",
+    "gpt-4.1-mini",
+    "claude-3.7-sonnet",
+    "claude-3-haiku",
+]
+
+
 def generate_prompt(topic, cs_level, major_lang):
     """Generate prompt for LLM to create code-switching scripts"""
     if cs_level in ["word", "phrase"]:
         examples = {
             "English": {
                 "word": "His favorite food is 김치.",
-                "phrase": "I need to 열심히 공부하다 for the exam."
+                "phrase": "I need to 열심히 공부하다 for the exam.",
             },
             "Korean": {
                 "word": "그의 favorite 음식은 김치예요.",
-                "phrase": "시험을 위해 study hard 해야 해요."
-            }
+                "phrase": "시험을 위해 study hard 해야 해요.",
+            },
         }
-        
+
         prompt = f"""Generate a 1-2 sentence script with {major_lang} as the primary language, 
         incorporating {cs_level}-level code-switching with {"Korean" if major_lang == "English" else "English"}.
         
@@ -61,28 +80,31 @@ def generate_prompt(topic, cs_level, major_lang):
         """
     return prompt
 
+
+import json
 import os
+
 import requests
 
-def send_llm_request(prompt):
+
+def send_llm_request(prompt, temp=0.7, model="gpt-4o-mini"):
     """Send request to LiteLLM server and get response"""
     api_key = os.getenv("LITELLM_API_KEY")
     if not api_key:
         raise ValueError("LITELLM_API_KEY environment variable is not set")
-        
+
     try:
         response = requests.post(
             "https://litellm-dev.thetaone-ai.com/chat/completions",
             headers={
                 "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
             json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
-            }
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temp,  # 이 부분이 추가되었습니다.
+            },
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
@@ -90,7 +112,33 @@ def send_llm_request(prompt):
         print(f"Error making request to LiteLLM server: {e}")
         return None
 
-_prompt = generate_prompt(TOPICS[1], CS_LEVEL[0], MAJOR_LANG[1])
-response = send_llm_request(_prompt)
 
-import pdb;pdb.set_trace()
+if __name__ == "__main__":
+    n_samples = 2
+    scripts = []
+    for topic in TOPICS:
+        for cs_level in CS_LEVEL:
+            for major_lang in MAJOR_LANG:
+                _prompt = generate_prompt(topic, cs_level, major_lang)
+
+                model_scripts = {}
+                for model in MODELS:
+                    model_scripts[model] = []
+                    for i in range(n_samples):
+                        response = send_llm_request(_prompt)
+                        if response is not None:
+                            model_scripts[model].append(response)
+                scripts.append(
+                    {
+                        "topic": topic,
+                        "cs_level": cs_level,
+                        "major_lang": major_lang,
+                        "scripts": model_scripts,
+                    }
+                )
+
+    with open("scripts/samples.json", "w") as f:
+        json.dump(scripts, f, ensure_ascii=False, indent=4)
+    import pdb
+
+    pdb.set_trace()
